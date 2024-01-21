@@ -1,0 +1,45 @@
+---
+
+- name: Fail on spaces in streams config names
+  ansible.builtin.assert:
+    that:
+      - "' ' not in item.key"
+  with_dict: "{{ nginx_stream.streams }}"
+  no_log: true
+
+- name: Create nginx streams-avalable file
+  when:
+    - item.value.content is defined
+    - item.value.content != None
+    - item.value.content | length > 0
+  with_dict: "{{ nginx_stream.streams }}"
+  ansible.builtin.template:
+    src: nginx_stream.streams.j2
+    dest: "/etc/nginx/streams-available/{{ item.key }}"
+    mode: "0600"
+    owner: root
+    group: root
+  no_log: true
+  notify: (Re)start nginx service
+
+- name: Create nginx streams-enabled symlbolic link
+  when:
+    - item.value.enabled is defined
+    - item.value.enabled != None
+    - item.value.enabled | bool
+  with_dict: "{{ nginx_stream.streams }}"
+  ansible.builtin.file:
+    src: "/etc/nginx/streams-available/{{ item.key }}"
+    dest: "/etc/nginx/streams-enabled/{{ item.key }}"
+    state: link
+  no_log: true
+  notify: (Re)start nginx service
+
+- name: Delete nginx streams-enabled symbolic link
+  when: (item.value.enabled is not defined) or (item.value.enabled == None) or (not item.value.enabled | bool)
+  with_dict: "{{ nginx_stream.streams }}"
+  ansible.builtin.file:
+    path: "/etc/nginx/streams-enabled/{{ item.key }}"
+    state: absent
+  no_log: true
+  notify: (Re)start nginx service

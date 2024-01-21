@@ -1,0 +1,51 @@
+---
+
+- name: Install nginx stream module
+  ansible.builtin.package:
+    name: "{{ nginx_stream.variant | default('libnginx-mod-stream') }}"
+    state: present
+
+- name: Create nginx streams directories
+  ansible.builtin.file:
+    path: "/etc/nginx/{{ item }}"
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+  with_items:
+    - streams-available
+    - streams-enabled
+
+- name: Create nginx stream config file
+  ansible.builtin.template:
+    src: nginx_stream.module.j2
+    dest: "/etc/nginx/modules-available/stream_configuration.conf"
+    mode: '0600'
+    owner: root
+    group: root
+  notify: (Re)start nginx service
+
+- name: Create nginx stream config symlbolic link
+  when: (nginx_stream.disabled is not defined) or (nginx_stream.disabled == None) or (not nginx_stream.disabled | bool)
+  ansible.builtin.file:
+    src: "/etc/nginx/modules-available/stream_configuration.conf"
+    dest: "/etc/nginx/modules-enabled/stream_configuration.conf"
+    state: link
+  notify: (Re)start nginx service
+
+- name: Delete nginx stream config symlbolic link
+  when:
+    - nginx_stream.disabled is defined
+    - nginx_stream.disabled != None
+    - nginx_stream.disabled | bool
+  ansible.builtin.file:
+    path: "/etc/nginx/modules-enabled/stream_configuration.conf"
+    state: absent
+  notify: (Re)start nginx service
+
+- name: Configure streams
+  when:
+    - nginx_stream.streams is defined
+    - nginx_stream.streams != None
+  ansible.builtin.include_tasks:
+    file: streams.yml

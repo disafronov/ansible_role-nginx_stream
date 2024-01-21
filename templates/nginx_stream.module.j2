@@ -1,0 +1,7 @@
+{{ ansible_managed | comment }}
+
+stream {
+{{ nginx_stream.config | default() | indent(width=4, first=True) }}
+
+    include /etc/nginx/streams-enabled/*;
+}
